@@ -45,5 +45,6 @@
 
 - [x] Fancy index
 - [x] Status page
+- [ ] System Download Page
 - [ ] Dark mode
 - [ ] Multi language
