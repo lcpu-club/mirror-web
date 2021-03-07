@@ -9,7 +9,7 @@
         label="Name"
         width="180">
         <template slot-scope="scope">
-          <a :href="scope.row.url" class="mirror-link">{{scope.row.name}}</a>
+          <a href="javascript:void(0)" @click="jumpTo(scope.row.url)" class="mirror-link">{{scope.row.name}}</a>
         </template>
       </el-table-column>
       <el-table-column
@@ -76,6 +76,11 @@ export default {
     handleHelp: function (val) {
       this.$router.push({
         path: `/Help/${encodeURIComponent(val)}`
+      })
+    },
+    jumpTo: function (url) {
+      this.$router.push({
+        path: url
       })
     },
     tableRowClassName: function ({row, rowIndex}) {
