@@ -82,6 +82,20 @@ const router = new Router({
       }
     },
     {
+      path: '/Error404_target',
+      name: 'Error404_target',
+      beforeEnter (to, from, next) {
+        const err = new Error('404')
+        err.source = from.name
+        err.target = to.fullPath
+        /**
+          * Do NOT use `next(err)`, which pushes '/' into
+          * the history when resolving the first route.
+          */
+        throw err
+      }
+    },
+    {
       path: '*',
       name: 'File',
       component: File,
@@ -103,17 +117,14 @@ router.onError(err => {
       * XXX: Should we use server side rendering?
       */
     let func
-    let url
     if (err.source === null) {
       // the first route resolution
       func = window.location.replace
-      url = window.location.href
     } else {
       // not the first route resolution
       func = window.location.assign
-      url = window.location.origin + err.target
     }
-    func.apply(window.location, [`/Error404?url=${encodeURIComponent(url)}`])
+    func.apply(window.location, [`/Error404`])
   }
 })
 

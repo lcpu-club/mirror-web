@@ -51,15 +51,7 @@ export default {
   },
   methods: {
     make404Req: function () {
-      let func
-      if (history.length === 0) {
-        // the first route resolution
-        func = window.location.replace
-      } else {
-        // not the first route resolution
-        func = window.location.assign
-      }
-      func.apply(window.location, [`/Error404`])
+      this.$router.push('/Error404_target')
     },
     recalc: function () {
       let that = this
