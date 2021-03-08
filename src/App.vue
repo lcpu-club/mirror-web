@@ -27,9 +27,9 @@ body {
 }
 @font-face {
   font-family: 'Avenir';
-  src: url('/static/Avenir/H-Avenir-2.ttc') format('ttc'),
-       url('/static/Avenir/Avenir-Book-4.otf') format('otf'),
-       url('/static/Avenir/Avenir-Book-woff-5.ttf') format('ttf');
+  src: url('/static/Avenir/avenir-next-regular.ttf'),
+       url('/static/Avenir/avenir-next-regular.woff'),
+       url('/static/Avenir/avenir-next-regular.woff2');
 }
 #app {
   font-family: 'Avenir',Helvetica,Arial,"Hiragino Sans GB","Microsoft Yahei","微软雅黑",STHeiti,"华文细黑",sans-serif;
