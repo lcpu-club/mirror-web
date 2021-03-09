@@ -39,7 +39,7 @@
     <el-row :gutter="20" style="margin-bottom:40px">
       <el-col :span="12">
         <div>
-          <el-progress type="circle" :percentage="95"></el-progress>
+          <el-progress type="circle" :percentage="cpu_usage"></el-progress>
           CPU使用率
         </div>
       </el-col>
@@ -84,7 +84,8 @@ export default {
       chartdata_ipv4: null,
       chartdata_ipv6: null,
       chartdata_cpu: null,
-      chartdata_memory: null
+      chartdata_memory: null,
+      cpu_usage: 0
     }
   },
   methods: {
@@ -123,6 +124,57 @@ export default {
       }
       return data
     },
+    calculateX: function (data) {
+      let result = []
+      data.forEach((val, idx, arr) => {
+        let date = new Date(val * 1000) // sec to millisec
+        let hStr = date.getHours().toString().padStart(2, '0')
+        let mStr = date.getMinutes().toString().padStart(2, '0')
+        result.push(hStr + ':' + mStr)
+      })
+      return result
+    },
+    generateCpuData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=system.cpu&after=-86400&before=0&points=400&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        response.data.result.data[0].forEach((val, idx, arr) => {
+          if (idx !== 0) {
+            that.cpu_usage += val
+          }
+        })
+        that.cpu_usage = Math.round(that.cpu_usage + 0.5)
+        let raw = response.data.result.data.reverse()
+        let needIdx = []
+        let data = []
+        response.data.result.labels.forEach((val, idx, arr) => {
+          if (val === 'softirq' ||
+            val === 'irq' ||
+            val === 'user' ||
+            val === 'system' ||
+            val === 'iowait') {
+            needIdx.push(idx)
+          }
+        })
+        needIdx.forEach((val, idx, arr) => {
+          data.push({
+            label: response.data.result.labels[val],
+            data: []
+          })
+        })
+        let rawTimeline = []
+        raw.forEach((val, idx, arr) => {
+          rawTimeline.push(val[0])
+          needIdx.forEach((target, targetIdx, arr2) => {
+            data[targetIdx].data.push(val[target])
+          })
+        })
+        that.chartdata_cpu = {
+          type: '%',
+          axisX: that.calculateX(rawTimeline),
+          data: data
+        }
+      })
+    },
     generateData: function () {
       this.chartdata_ipv4 = {
         type: 'Mbps',
@@ -160,32 +212,6 @@ export default {
           }
         ]
       }
-      this.chartdata_cpu = {
-        type: '%',
-        axisX: this.generateTestX(),
-        data: [
-          {
-            label: 'User',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'System',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'Idle',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'I/O wait',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'Soft IRQ',
-            data: this.generateTestY(100)
-          }
-        ]
-      }
       this.chartdata_memory = {
         type: '%',
         axisX: this.generateTestX(),
@@ -208,6 +234,7 @@ export default {
           }
         ]
       }
+      this.generateCpuData()
     }
   },
   components: {
