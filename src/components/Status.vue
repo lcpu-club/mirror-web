@@ -7,20 +7,42 @@
       <el-col :span="12">
         <el-card shadow="hover">
           <div slot="header">
-            <span>IPv4 Traffic</span>
+            <span>IPv4 Inbound Traffic</span>
           </div>
-          <div v-if="chartdata_ipv4 !== null">
-            <my-line :chart-data="chartdata_ipv4"></my-line>
+          <div v-if="chartdata_ipv4_in !== null">
+            <my-line :chart-data="chartdata_ipv4_in"></my-line>
           </div>
         </el-card>
       </el-col>
       <el-col :span="12">
         <el-card shadow="hover">
           <div slot="header">
-            <span>IPv6 Traffic</span>
+            <span>IPv6 Inbound Traffic</span>
           </div>
-          <div v-if="chartdata_ipv6 !== null">
-            <my-line :chart-data="chartdata_ipv6"></my-line>
+          <div v-if="chartdata_ipv6_in !== null">
+            <my-line :chart-data="chartdata_ipv6_in"></my-line>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20" style="margin-top:10px">
+      <el-col :span="12">
+        <el-card shadow="hover">
+          <div slot="header">
+            <span>IPv4 Outbound Traffic</span>
+          </div>
+          <div v-if="chartdata_ipv4_out !== null">
+            <my-line :chart-data="chartdata_ipv4_out"></my-line>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card shadow="hover">
+          <div slot="header">
+            <span>IPv6 Outbound Traffic</span>
+          </div>
+          <div v-if="chartdata_ipv6_out !== null">
+            <my-line :chart-data="chartdata_ipv6_out"></my-line>
           </div>
         </el-card>
       </el-col>
@@ -30,7 +52,7 @@
     </el-row>
     <el-row>
       <el-col :span="20" :offset="2">
-        <el-progress :text-inside="true" :stroke-width="26" :format="formatDiskUsage" :percentage="75"></el-progress>
+        <el-progress :text-inside="true" :stroke-width="26" :format="formatDiskUsage" :percentage="disk_used_percentage"></el-progress>
       </el-col>
     </el-row>
     <el-row>
@@ -45,7 +67,7 @@
       </el-col>
       <el-col :span="12">
         <div>
-          <el-progress type="circle" :percentage="25"></el-progress>
+          <el-progress type="circle" :percentage="ram_usage"></el-progress>
           内存使用率
         </div>
       </el-col>
@@ -81,16 +103,21 @@ export default {
   name: 'Status',
   data () {
     return {
-      chartdata_ipv4: null,
-      chartdata_ipv6: null,
+      chartdata_ipv4_in: null,
+      chartdata_ipv4_out: null,
+      chartdata_ipv6_in: null,
+      chartdata_ipv6_out: null,
       chartdata_cpu: null,
       chartdata_memory: null,
-      cpu_usage: 0
+      cpu_usage: 0,
+      ram_usage: 0,
+      disk_avail_size: 1,
+      disk_used_size: 1
     }
   },
   methods: {
     formatDiskUsage: function (percentage) {
-      return `30T/40T ${percentage}%`
+      return `${this.disk_used_size}T/${this.disk_used_size + this.disk_avail_size}T ${percentage}%`
     },
     generateTestY: function (multi) {
       let data = []
@@ -175,66 +202,199 @@ export default {
         }
       })
     },
+    generateRamData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=system.ram&after=-86400&before=0&points=400&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        let allMem = 0
+        let freeMem = 0
+        response.data.result.data[0].forEach((val, idx, arr) => {
+          if (idx !== 0) {
+            allMem += val
+            if (response.data.result.labels[idx] !== 'used') {
+              freeMem += val
+            }
+          }
+        })
+        that.ram_usage = Math.round((1.0 - freeMem / allMem) * 100)
+        let raw = response.data.result.data.reverse()
+        let needIdx = []
+        let data = []
+        response.data.result.labels.forEach((val, idx, arr) => {
+          if (val === 'free' ||
+            val === 'used' ||
+            val === 'cached' ||
+            val === 'buffers') {
+            needIdx.push(idx)
+          }
+        })
+        needIdx.forEach((val, idx, arr) => {
+          data.push({
+            label: response.data.result.labels[val],
+            data: []
+          })
+        })
+        let rawTimeline = []
+        raw.forEach((val, idx, arr) => {
+          rawTimeline.push(val[0])
+          needIdx.forEach((target, targetIdx, arr2) => {
+            data[targetIdx].data.push(val[target])
+          })
+        })
+        that.chartdata_memory = {
+          type: 'Mib',
+          axisX: that.calculateX(rawTimeline),
+          data: data
+        }
+      })
+    },
+    generateIpv4InData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=tc.world_in&after=-86400&before=0&points=400&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        let raw = response.data.result.data.reverse()
+        let needIdx = []
+        let data = []
+        response.data.result.labels.forEach((val, idx, arr) => {
+          if (val === 'ipv4_http' ||
+            val === 'ipv4_https') {
+            needIdx.push(idx)
+          }
+        })
+        needIdx.forEach((val, idx, arr) => {
+          data.push({
+            label: response.data.result.labels[val],
+            data: []
+          })
+        })
+        let rawTimeline = []
+        raw.forEach((val, idx, arr) => {
+          rawTimeline.push(val[0])
+          needIdx.forEach((target, targetIdx, arr2) => {
+            data[targetIdx].data.push(val[target])
+          })
+        })
+        that.chartdata_ipv4_in = {
+          type: 'Kib',
+          axisX: that.calculateX(rawTimeline),
+          data: data
+        }
+      })
+    },
+    generateIpv6InData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=tc.world_in&after=-86400&before=0&points=400&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        let raw = response.data.result.data.reverse()
+        let needIdx = []
+        let data = []
+        response.data.result.labels.forEach((val, idx, arr) => {
+          if (val === 'ipv6_http' ||
+            val === 'ipv6_https') {
+            needIdx.push(idx)
+          }
+        })
+        needIdx.forEach((val, idx, arr) => {
+          data.push({
+            label: response.data.result.labels[val],
+            data: []
+          })
+        })
+        let rawTimeline = []
+        raw.forEach((val, idx, arr) => {
+          rawTimeline.push(val[0])
+          needIdx.forEach((target, targetIdx, arr2) => {
+            data[targetIdx].data.push(val[target])
+          })
+        })
+        that.chartdata_ipv6_in = {
+          type: 'Kib',
+          axisX: that.calculateX(rawTimeline),
+          data: data
+        }
+      })
+    },
+    generateIpv4OutData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=tc.world_out&after=-86400&before=0&points=400&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        let raw = response.data.result.data.reverse()
+        let needIdx = []
+        let data = []
+        response.data.result.labels.forEach((val, idx, arr) => {
+          if (val === 'ipv4_http' ||
+            val === 'ipv4_https') {
+            needIdx.push(idx)
+          }
+        })
+        needIdx.forEach((val, idx, arr) => {
+          data.push({
+            label: response.data.result.labels[val],
+            data: []
+          })
+        })
+        let rawTimeline = []
+        raw.forEach((val, idx, arr) => {
+          rawTimeline.push(val[0])
+          needIdx.forEach((target, targetIdx, arr2) => {
+            data[targetIdx].data.push(val[target])
+          })
+        })
+        that.chartdata_ipv4_out = {
+          type: 'Kib',
+          axisX: that.calculateX(rawTimeline),
+          data: data
+        }
+      })
+    },
+    generateIpv6OutData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=tc.world_out&after=-86400&before=0&points=400&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        let raw = response.data.result.data.reverse()
+        let needIdx = []
+        let data = []
+        response.data.result.labels.forEach((val, idx, arr) => {
+          if (val === 'ipv6_http' ||
+            val === 'ipv6_https') {
+            needIdx.push(idx)
+          }
+        })
+        needIdx.forEach((val, idx, arr) => {
+          data.push({
+            label: response.data.result.labels[val],
+            data: []
+          })
+        })
+        let rawTimeline = []
+        raw.forEach((val, idx, arr) => {
+          rawTimeline.push(val[0])
+          needIdx.forEach((target, targetIdx, arr2) => {
+            data[targetIdx].data.push(val[target])
+          })
+        })
+        that.chartdata_ipv6_out = {
+          type: 'Kib',
+          axisX: that.calculateX(rawTimeline),
+          data: data
+        }
+      })
+    },
+    generateDiskData: function () {
+      let that = this
+      this.$axios.get('http://mirrors.pku.edu.cn/monitor_device/api/v1/data?chart=disk_space._data&after=-1&before=0&points=1&group=average&gtime=0&format=json&options=seconds&options=jsonwrap').then((response) => {
+        that.disk_used_size = Math.round(response.data.latest_values[1] / 1024)
+        that.disk_avail_size = Math.round(response.data.latest_values[0] / 1024)
+      })
+    },
     generateData: function () {
-      this.chartdata_ipv4 = {
-        type: 'Mbps',
-        axisX: this.generateTestX(),
-        data: [
-          {
-            label: 'http-ipv4',
-            data: this.generateTestY(800)
-          },
-          {
-            label: 'https-ipv4',
-            data: this.generateTestY(800)
-          },
-          {
-            label: 'rsync-ipv4',
-            data: this.generateTestY(800)
-          }
-        ]
-      }
-      this.chartdata_ipv6 = {
-        type: 'Mbps',
-        axisX: this.generateTestX(),
-        data: [
-          {
-            label: 'http-ipv6',
-            data: this.generateTestY(800)
-          },
-          {
-            label: 'https-ipv6',
-            data: this.generateTestY(800)
-          },
-          {
-            label: 'rsync-ipv6',
-            data: this.generateTestY(800)
-          }
-        ]
-      }
-      this.chartdata_memory = {
-        type: '%',
-        axisX: this.generateTestX(),
-        data: [
-          {
-            label: 'used',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'buffered',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'cached',
-            data: this.generateTestY(100)
-          },
-          {
-            label: 'free',
-            data: this.generateTestY(100)
-          }
-        ]
-      }
+      this.generateIpv4InData()
+      this.generateIpv6InData()
+      this.generateIpv4OutData()
+      this.generateIpv6OutData()
+      this.generateDiskData()
       this.generateCpuData()
+      this.generateRamData()
+    }
+  },
+  computed: {
+    disk_used_percentage: function () {
+      return Math.round(this.disk_used_size / (this.disk_avail_size + this.disk_used_size) * 100)
     }
   },
   components: {
