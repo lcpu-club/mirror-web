@@ -1,3 +1,7 @@
+Abandoned.
+
+New repo is at: https://github.com/PKUOSC/Mirror-Web 
+
 # PKU Mirror 前端
 
 ## 如何添加
