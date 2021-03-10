@@ -402,7 +402,7 @@ export default {
   },
   mounted () {
     this.generateData()
-    this.$message('测试数据，非真实数据')
+    // this.$message('测试数据，非真实数据')
   }
 }
 </script>
